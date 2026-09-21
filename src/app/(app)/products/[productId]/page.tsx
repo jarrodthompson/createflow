@@ -72,7 +72,7 @@ export default async function ProductDetailPage({
       where: { productId, status: "completed" },
       orderBy: { index: "asc" },
       take: 18,
-      select: { id: true, index: true, storageKey: true, category: true },
+      select: { id: true, index: true, storageKey: true, category: true, updatedAt: true },
     }),
     prisma.image.count({
       where: { productId, status: "completed", review: { is: { decision: "approved" } } },
@@ -257,7 +257,7 @@ export default async function ProductDetailPage({
                   className="relative aspect-square overflow-hidden rounded-lg border border-line bg-surface-2"
                 >
                   <Image
-                    src={fileUrl(img.storageKey)}
+                    src={fileUrl(img.storageKey, img.updatedAt)}
                     alt={img.category ?? `Design ${img.index}`}
                     fill
                     unoptimized

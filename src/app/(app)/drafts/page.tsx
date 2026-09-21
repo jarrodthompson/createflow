@@ -17,7 +17,7 @@ export default async function DraftsPage() {
     ? await prisma.etsyListing.findMany({
         where: { shopId: shop.id, etsyListingId: { not: null } },
         orderBy: { updatedAt: "desc" },
-        include: { product: { select: { id: true, name: true, thumbnailKey: true } } },
+        include: { product: { select: { id: true, name: true, thumbnailKey: true, updatedAt: true } } },
       })
     : [];
 
@@ -53,7 +53,7 @@ export default async function DraftsPage() {
                 {d.product?.thumbnailKey ? (
                   <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-line">
                     <Image
-                      src={fileUrl(d.product.thumbnailKey)}
+                      src={fileUrl(d.product.thumbnailKey, d.product.updatedAt)}
                       alt={d.title}
                       fill
                       unoptimized

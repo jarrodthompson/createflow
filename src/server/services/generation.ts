@@ -30,10 +30,23 @@ async function processImage(imageId: string, attempts = 2): Promise<boolean> {
   const storage = getStorage();
   const palette = parseList(image.product.colorPalette);
 
+  // Build a self-contained image prompt. Different text providers put the rich
+  // description in either `concept` or `text`, so we combine both and always
+  // anchor to the product's theme/style/palette for on-brand, cohesive output.
+  const descParts = [image.prompt?.concept, image.prompt?.text]
+    .map((s) => s?.trim())
+    .filter((s): s is string => !!s && s.length > 4 && s.toLowerCase() !== "no text, no watermark");
+  const desc = descParts.join(". ") || `${image.category ?? ""} ${image.product.theme}`.trim();
+  const fullPrompt =
+    `${desc}. Theme: ${image.product.theme}.` +
+    (image.product.style ? ` Style: ${image.product.style}.` : "") +
+    (palette.length ? ` Colour palette: ${palette.join(", ")}.` : "") +
+    " Cohesive with the rest of the collection. No text, no watermark, high resolution.";
+
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const result = await provider.generate({
-        prompt: image.prompt?.text ?? image.product.theme,
+        prompt: fullPrompt,
         palette,
         index: image.index,
         category: image.category ?? image.prompt?.category,

@@ -34,6 +34,7 @@ export default async function ReviewPage({
     index: i.index,
     category: i.category,
     storageKey: i.storageKey,
+    version: i.updatedAt.getTime(),
     status: i.status,
     decision: i.review?.decision ?? null,
     qualityScore: i.qualityScore,

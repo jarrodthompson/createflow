@@ -85,7 +85,7 @@ export default async function PhotoLibraryPage({
           {images.map((img) => (
             <div key={img.id} className="group relative aspect-square overflow-hidden rounded-lg border border-line bg-surface-2">
               <Image
-                src={fileUrl(img.storageKey!)}
+                src={fileUrl(img.storageKey!, img.updatedAt)}
                 alt={img.category ?? img.product.name}
                 fill
                 unoptimized

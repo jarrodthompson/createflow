@@ -30,6 +30,7 @@ export type ReviewImage = {
   index: number;
   category: string | null;
   storageKey: string | null;
+  version: number;
   status: string;
   decision: string | null;
   qualityScore: number | null;
@@ -165,7 +166,7 @@ export function ReviewGallery({
             <div className="relative aspect-square bg-surface-2">
               {img.storageKey ? (
                 <Image
-                  src={fileUrl(img.storageKey)}
+                  src={fileUrl(img.storageKey, img.version)}
                   alt={img.category ?? `Design ${img.index}`}
                   fill
                   unoptimized
@@ -287,7 +288,7 @@ function PreviewModal({ image, onClose }: { image: ReviewImage; onClose: () => v
           <div className="relative aspect-square overflow-hidden rounded-xl border border-line bg-surface-2">
             {image.storageKey && (
               <Image
-                src={fileUrl(image.storageKey)}
+                src={fileUrl(image.storageKey, image.version)}
                 alt={image.category ?? `Design ${image.index}`}
                 fill
                 unoptimized

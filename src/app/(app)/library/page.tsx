@@ -59,7 +59,7 @@ export default async function LibraryPage() {
                 <div className="relative aspect-[4/3] bg-surface-2">
                   {p.thumbnailKey ? (
                     <Image
-                      src={fileUrl(p.thumbnailKey)}
+                      src={fileUrl(p.thumbnailKey, p.updatedAt)}
                       alt={p.name}
                       fill
                       unoptimized
