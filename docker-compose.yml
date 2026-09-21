@@ -1,9 +1,13 @@
-# Optional local services for CreateFlow (Phases 3, 5, 7).
-# Docker is NOT required — you can use hosted alternatives instead:
-#   Redis   -> Upstash        Storage -> Cloudflare R2 / AWS S3
-#   Postgres-> Neon / Supabase
+# CreateFlow — full local stack (app + worker + Postgres + Redis + MinIO).
 #
-# Start everything:  docker compose up -d
+#   docker compose up --build        # build + run everything
+#   docker compose exec app npm run db:seed   # (once) load demo data
+#   open http://localhost:3000       # app  ·  http://localhost:9001  MinIO console
+#
+# Secrets (SESSION_SECRET, TOKEN_ENC_KEY, AI keys, AI_*_PROVIDER) are read from
+# your .env via ${VAR} interpolation, with dev fallbacks. Infra URLs point at the
+# compose service names. You can still run only the infra with:
+#   docker compose up -d postgres redis minio
 services:
   postgres:
     image: postgres:16-alpine
@@ -15,11 +19,21 @@ services:
       - "5432:5432"
     volumes:
       - cf_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U createflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # S3-compatible object storage
   minio:
@@ -33,6 +47,58 @@ services:
       - "9001:9001"
     volumes:
       - cf_minio:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Next.js web app — runs migrations + ensures the bucket, then serves.
+  app:
+    build: .
+    image: createflow:latest
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    environment: &app_env
+      DATABASE_URL: postgresql://createflow:createflow@postgres:5432/createflow?schema=public
+      REDIS_URL: redis://redis:6379
+      QUEUE_DRIVER: bullmq
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: createflow
+      S3_ACCESS_KEY: createflow
+      S3_SECRET_KEY: createflow123
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-createflow-session-secret-change-me-please-32b}
+      TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-dev-createflow-token-encryption-key-change-me-32b}
+      AI_TEXT_PROVIDER: ${AI_TEXT_PROVIDER:-mock}
+      AI_IMAGE_PROVIDER: ${AI_IMAGE_PROVIDER:-mock}
+      AI_VISION_PROVIDER: ${AI_VISION_PROVIDER:-mock}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ETSY_CLIENT_ID: ${ETSY_CLIENT_ID:-}
+      ETSY_CLIENT_SECRET: ${ETSY_CLIENT_SECRET:-}
+      ETSY_REDIRECT_URI: ${ETSY_REDIRECT_URI:-}
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npx tsx scripts/setup-storage.ts &&
+             npm start"
+    ports:
+      - "3000:3000"
+
+  # Background worker — consumes the BullMQ generation/analysis/packaging queues.
+  worker:
+    image: createflow:latest
+    depends_on:
+      app: { condition: service_started }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    environment: *app_env
+    command: npm run worker
 
 volumes:
   cf_pg:

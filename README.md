@@ -14,11 +14,25 @@ image generation → review → packaging → Etsy SEO → Etsy draft → your f
 
 ## Getting started
 
+### Option A — one command (Docker: app + worker + Postgres + Redis + MinIO)
+
+```bash
+docker compose up --build
+docker compose exec app npm run db:seed   # once, to load demo data
+```
+App → http://localhost:3000 · MinIO console → http://localhost:9001. Put any AI
+keys in `.env` (see below) before `up` and set `AI_*_PROVIDER` to `openai`/`gemini`.
+
+### Option B — local Node + Docker infra only
+
 ```bash
 npm install
-npm run db:push     # create the local SQLite database from the schema
-npm run db:seed     # load a demo seller, shops and products
-npm run dev         # http://localhost:3000
+docker compose up -d postgres redis minio   # or use hosted equivalents
+npm run storage:setup                        # create the MinIO bucket
+npm run db:push        # sync schema  (or: npx prisma migrate dev)
+npm run db:seed        # demo seller, shops and products
+npm run dev            # http://localhost:3000
+npm run worker         # background jobs (separate terminal)
 ```
 
 **Demo login:** `demo@createflow.app` / `demo1234`
