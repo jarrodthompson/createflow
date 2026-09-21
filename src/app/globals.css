@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* ============================================================
+   CreateFlow design system — warm neutral (cream / tan / gold)
+   Light-first commercial SaaS look. Tokens drive every surface.
+   ============================================================ */
+:root {
+  --cf-bg: #f4efe7; /* warm off-white / cream page background */
+  --cf-surface: #ffffff; /* cards */
+  --cf-surface-2: #efe7da; /* soft beige panels (KPI / quick-action tiles) */
+  --cf-surface-3: #e7dccb; /* slightly deeper beige (hover / accents) */
+  --cf-sidebar: #f7f2ea; /* sidebar background */
+
+  --cf-primary: #a6884e; /* muted tan / warm gold */
+  --cf-primary-hover: #957842;
+  --cf-primary-soft: #ece1cd; /* soft gold tint */
+
+  --cf-text: #2b2724; /* dark charcoal */
+  --cf-text-muted: #8a8073; /* muted warm gray */
+  --cf-text-subtle: #a89f91;
+
+  --cf-border: #e5dccd; /* very light warm gray/beige */
+  --cf-border-strong: #d8cdba;
+
+  --cf-success: #6f8f5f;
+  --cf-success-bg: #e6ede0;
+  --cf-info: #6b86a3;
+  --cf-info-bg: #e3eaf1;
+  --cf-warning: #b08838;
+  --cf-warning-bg: #f2e8d4;
+  --cf-danger: #b5654d;
+  --cf-danger-bg: #f2e0da;
+
+  --cf-radius: 0.85rem;
+  --cf-shadow: 0 1px 2px rgba(43, 39, 36, 0.04), 0 4px 16px rgba(43, 39, 36, 0.05);
+}
+
+@theme inline {
+  --color-bg: var(--cf-bg);
+  --color-surface: var(--cf-surface);
+  --color-surface-2: var(--cf-surface-2);
+  --color-surface-3: var(--cf-surface-3);
+  --color-sidebar: var(--cf-sidebar);
+  --color-primary: var(--cf-primary);
+  --color-primary-hover: var(--cf-primary-hover);
+  --color-primary-soft: var(--cf-primary-soft);
+  --color-ink: var(--cf-text);
+  --color-muted: var(--cf-text-muted);
+  --color-subtle: var(--cf-text-subtle);
+  --color-line: var(--cf-border);
+  --color-line-strong: var(--cf-border-strong);
+  --color-success: var(--cf-success);
+  --color-success-bg: var(--cf-success-bg);
+  --color-info: var(--cf-info);
+  --color-info-bg: var(--cf-info-bg);
+  --color-warning: var(--cf-warning);
+  --color-warning-bg: var(--cf-warning-bg);
+  --color-danger: var(--cf-danger);
+  --color-danger-bg: var(--cf-danger-bg);
+  --radius-cf: var(--cf-radius);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  border-color: var(--cf-border);
+}
+
+body {
+  background: var(--cf-bg);
+  color: var(--cf-text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, warm scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cf-border-strong);
+  border-radius: 999px;
+  border: 2px solid var(--cf-bg);
+}

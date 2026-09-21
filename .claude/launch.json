@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "createflow",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/mac/Desktop/create-flow", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

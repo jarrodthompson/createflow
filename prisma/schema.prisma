@@ -1,0 +1,307 @@
+// CreateFlow — Prisma schema (PostgreSQL).
+// Run Postgres via docker-compose (or any hosted Postgres) and point
+// DATABASE_URL at it. Statuses are constrained strings (validated in app code
+// via Zod) and list values are JSON strings, keeping the schema simple and
+// portable. `npm run docker:up` + `npx prisma migrate dev` to set up locally.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     Session[]
+  shops        EtsyShop[]
+  products     Product[]
+  styleDna     StyleDna[]
+  settings     Setting[]
+  activityLogs ActivityLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model EtsyShop {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  etsyShopId  String?  // populated once connected via Etsy OAuth
+  status      String   @default("disconnected") // disconnected | connected | error
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products      Product[]
+  collections   Collection[]
+  listings      EtsyListing[]
+  connections   ApiConnection[]
+
+  @@index([userId])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopId       String
+  shop         EtsyShop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  collectionId String?
+  collection   Collection? @relation(fields: [collectionId], references: [id])
+  styleDnaId   String?
+  styleDna     StyleDna? @relation(fields: [styleDnaId], references: [id])
+
+  name          String
+  productType   String   // e.g. "Digital Paper"
+  theme         String
+  style         String?
+  colorPalette  String?  // JSON array of colors
+  designCount   Int      @default(0)
+  canvasSize    String?  // e.g. "3600x3600"
+  dpi           Int      @default(300)
+  thumbnailKey  String?  // object-storage key
+  status        String   @default("draft") // draft | planning | generating | review | ready | listed | archived
+  etsyStatus    String   @default("none")  // none | draft | scheduled | published | failed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  prompts      Prompt[]
+  images       Image[]
+  files        ProductFile[]
+  jobs         GenerationJob[]
+  listing      EtsyListing?
+
+  @@index([userId])
+  @@index([shopId, status])
+  @@index([collectionId])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        EtsyShop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name        String
+  concept     String?
+  visualDirection String?
+  colorDirection  String?
+  styleRules      String?
+  compositionRules String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories  CollectionCategory[]
+  products    Product[]
+
+  @@index([shopId])
+}
+
+model CollectionCategory {
+  id           String   @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String
+  designCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([collectionId])
+}
+
+model StyleDna {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  descriptors String?  // JSON array e.g. ["Whimsical","Soft"]
+  colorMoods  String?  // JSON array e.g. ["Pastel","Muted"]
+  avoid       String?  // JSON array e.g. ["Neon","Text"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products    Product[]
+
+  @@index([userId])
+}
+
+model Prompt {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  index      Int
+  concept    String
+  category   String?
+  text       String
+  status     String   @default("draft") // draft | approved | generating | done | failed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  images     Image[]
+
+  @@index([productId, status])
+}
+
+model Image {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  promptId   String?
+  prompt     Prompt?  @relation(fields: [promptId], references: [id])
+  index      Int
+  category   String?
+  storageKey String?  // object-storage key (never binary in DB)
+  status     String   @default("queued") // queued | generating | completed | failed | rejected
+  model      String?
+  hash       String?  // content hash for duplicate detection
+  qualityScore Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  analysis   ImageAnalysis?
+  review     ImageReview?
+
+  @@index([productId, status])
+}
+
+model ImageAnalysis {
+  id        String   @id @default(cuid())
+  imageId   String   @unique
+  image     Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  themeMatch      Float?
+  styleConsistency Float?
+  colorConsistency Float?
+  composition     Float?
+  visualQuality   Float?
+  hasArtifacts    Boolean @default(false)
+  hasText         Boolean @default(false)
+  hasWatermark    Boolean @default(false)
+  duplicateOf     String?
+  raw             String? // JSON of full analysis
+  createdAt DateTime @default(now())
+}
+
+model ImageReview {
+  id        String   @id @default(cuid())
+  imageId   String   @unique
+  image     Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  decision  String   @default("pending") // pending | approved | rejected
+  note      String?
+  reviewedAt DateTime @default(now())
+}
+
+model GenerationJob {
+  id         String   @id @default(cuid())
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type       String   // generation | analysis | packaging | etsy-upload | metadata
+  status     String   @default("queued") // queued | running | completed | failed
+  progress   Int      @default(0)
+  total      Int      @default(0)
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+  @@index([productId])
+}
+
+model ProductFile {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  kind       String   // final-image | preview | prompt-csv | listing-text | zip
+  storageKey String
+  filename   String
+  bytes      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
+}
+
+model EtsyListing {
+  id            String   @id @default(cuid())
+  shopId        String
+  shop          EtsyShop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId     String?  @unique
+  product       Product? @relation(fields: [productId], references: [id])
+  title         String
+  status        String   @default("draft") // draft | needs-review | scheduled | published | failed
+  etsyListingId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  metadata      EtsyMetadata?
+
+  @@index([shopId, status])
+}
+
+model EtsyMetadata {
+  id          String   @id @default(cuid())
+  listingId   String   @unique
+  listing     EtsyListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  description String?
+  tags        String?  // JSON array
+  keywords    String?  // JSON array
+  materials   String?  // JSON array
+  colors      String?  // JSON array
+  occasions   String?  // JSON array
+  styleTags   String?  // JSON array
+  category    String?
+  attributes  String?  // JSON object
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApiConnection {
+  id           String   @id @default(cuid())
+  shopId       String?
+  shop         EtsyShop? @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  provider     String   // etsy | gemini | openai
+  encryptedToken String?
+  encryptedRefresh String?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([shopId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     String   // JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+}
