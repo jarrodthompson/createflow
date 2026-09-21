@@ -63,7 +63,7 @@ export class GeminiVisionProvider implements VisionProvider {
   readonly isMock = false;
 
   async analyze(input: VisionInput): Promise<AnalysisResult> {
-    const model = "gemini-1.5-flash";
+    const model = "gemini-flash-latest";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
     const res = await fetch(url, {
       method: "POST",

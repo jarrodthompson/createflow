@@ -33,32 +33,34 @@ export class OpenAIImageProvider implements ImageProvider {
   }
 }
 
-/** Google Imagen provider (REST predict). Real implementation — needs GEMINI_API_KEY. */
+/** Google Gemini image provider (generateContent). Real — needs GEMINI_API_KEY. */
 export class GeminiImageProvider implements ImageProvider {
   readonly name = "gemini";
   readonly isMock = false;
 
   async generate(input: ImageGenInput): Promise<GeneratedImage> {
-    const model = "imagen-3.0-generate-002";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${env.GEMINI_API_KEY}`;
+    const model = "gemini-3.1-flash-image";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        instances: [{ prompt: input.prompt }],
-        parameters: { sampleCount: 1, aspectRatio: "1:1" },
+        contents: [{ role: "user", parts: [{ text: input.prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE"] },
       }),
     });
-    if (!res.ok) throw new Error(`Imagen error ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`Gemini image error ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as {
-      predictions?: { bytesBase64Encoded?: string }[];
+      candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[];
     };
-    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) throw new Error("Imagen returned no data");
+    const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+    const b64 = part?.inlineData?.data;
+    if (!b64) throw new Error("Gemini image returned no data");
+    const mime = part?.inlineData?.mimeType ?? "image/png";
     return {
       bytes: Buffer.from(b64, "base64"),
-      contentType: "image/png",
-      ext: "png",
+      contentType: mime,
+      ext: mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png",
       model,
     };
   }
