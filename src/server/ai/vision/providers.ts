@@ -117,13 +117,16 @@ export class CloudflareVisionProvider implements VisionProvider {
       { label: "Cloudflare vision", retries: 3, baseDelayMs: 1500 },
     );
     const data = (await res.json()) as {
-      result?: { response?: string };
+      result?: { response?: unknown };
       success?: boolean;
       errors?: { message?: string }[];
     };
     if (data.success === false) {
       throw new Error(`Cloudflare vision error: ${data.errors?.map((e) => e.message).join("; ")}`);
     }
-    return parse(data.result?.response ?? "");
+    const out = data.result?.response;
+    if (out == null) throw new Error("Cloudflare vision returned no content");
+    // Some models return the response already parsed as an object.
+    return parse(typeof out === "string" ? out : JSON.stringify(out));
   }
 }
