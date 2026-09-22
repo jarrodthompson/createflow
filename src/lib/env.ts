@@ -25,6 +25,12 @@ const schema = z.object({
   ETSY_REDIRECT_URI: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  // Cloudflare Workers AI (free-tier friendly) — text, image and vision.
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_TEXT_MODEL: z.string().default("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
+  CLOUDFLARE_IMAGE_MODEL: z.string().default("@cf/black-forest-labs/flux-1-schnell"),
+  CLOUDFLARE_VISION_MODEL: z.string().default("@cf/meta/llama-3.2-11b-vision-instruct"),
   AI_TEXT_PROVIDER: z.string().default("mock"),
   AI_IMAGE_PROVIDER: z.string().default("mock"),
   AI_VISION_PROVIDER: z.string().default("mock"),

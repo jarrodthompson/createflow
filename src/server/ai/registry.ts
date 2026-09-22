@@ -4,6 +4,7 @@ import { type CreativeDirectorProvider } from "./types";
 import { MockCreativeDirector } from "./mock";
 import { createGeminiDirector } from "./providers/gemini";
 import { createOpenAIDirector } from "./providers/openai";
+import { createCloudflareDirector } from "./providers/cloudflare";
 
 /**
  * Selects the Creative Director provider from AI_TEXT_PROVIDER. Falls back to
@@ -22,6 +23,11 @@ export function getCreativeDirector(): CreativeDirectorProvider {
     const p = createOpenAIDirector();
     if (p) return p;
     console.warn("AI_TEXT_PROVIDER=openai but OPENAI_API_KEY missing — using mock.");
+  }
+  if (choice === "cloudflare") {
+    const p = createCloudflareDirector();
+    if (p) return p;
+    console.warn("AI_TEXT_PROVIDER=cloudflare but CLOUDFLARE_* missing — using mock.");
   }
   return new MockCreativeDirector();
 }

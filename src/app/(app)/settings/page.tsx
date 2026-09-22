@@ -108,8 +108,10 @@ export default async function SettingsPage({
           ))}
         </div>
         <p className="mt-3 text-xs text-subtle">
-          Configure GEMINI_API_KEY or OPENAI_API_KEY and set AI_TEXT_PROVIDER / AI_IMAGE_PROVIDER /
-          AI_VISION_PROVIDER in your environment to use real providers. Keys stay server-side.
+          Set AI_TEXT_PROVIDER / AI_IMAGE_PROVIDER / AI_VISION_PROVIDER to{" "}
+          <span className="font-medium text-ink">cloudflare</span> (free-tier Workers AI, add
+          CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN), <span className="font-medium text-ink">openai</span>{" "}
+          or <span className="font-medium text-ink">gemini</span>. Keys stay server-side.
         </p>
       </Card>
 

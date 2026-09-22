@@ -1,5 +1,14 @@
 import { type ImageProvider, type ImageGenInput, type GeneratedImage } from "./types";
+import { postWithRetry } from "../fetch-retry";
+import { cfRunUrl } from "../providers/cloudflare";
 import { env } from "@/lib/env";
+
+function detectImage(bytes: Buffer): { contentType: string; ext: string } {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) return { contentType: "image/png", ext: "png" };
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return { contentType: "image/jpeg", ext: "jpg" };
+  if (bytes[0] === 0x52 && bytes[1] === 0x49) return { contentType: "image/webp", ext: "webp" };
+  return { contentType: "image/png", ext: "png" };
+}
 
 /** OpenAI image provider (gpt-image-1). Real implementation — needs OPENAI_API_KEY. */
 export class OpenAIImageProvider implements ImageProvider {
@@ -63,5 +72,48 @@ export class GeminiImageProvider implements ImageProvider {
       ext: mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png",
       model,
     };
+  }
+}
+
+/** Cloudflare Workers AI image provider (FLUX schnell). Free-tier friendly. */
+export class CloudflareImageProvider implements ImageProvider {
+  readonly name = "cloudflare";
+  readonly isMock = false;
+
+  async generate(input: ImageGenInput): Promise<GeneratedImage> {
+    const model = env.CLOUDFLARE_IMAGE_MODEL;
+    const res = await postWithRetry(
+      cfRunUrl(model),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        // FLUX schnell caps at 8 steps and ~2048-char prompts.
+        body: JSON.stringify({ prompt: input.prompt.slice(0, 2000), steps: 6 }),
+      },
+      { label: "Cloudflare image", retries: 3, baseDelayMs: 1500 },
+    );
+
+    const ct = res.headers.get("content-type") ?? "";
+    let bytes: Buffer;
+    if (ct.includes("application/json")) {
+      // FLUX schnell returns { result: { image: "<base64>" } }.
+      const data = (await res.json()) as {
+        result?: { image?: string };
+        success?: boolean;
+        errors?: { message?: string }[];
+      };
+      if (!data.result?.image) {
+        throw new Error(`Cloudflare image error: ${data.errors?.map((e) => e.message).join("; ") || "no image"}`);
+      }
+      bytes = Buffer.from(data.result.image, "base64");
+    } else {
+      // Some image models (e.g. SDXL) return raw binary.
+      bytes = Buffer.from(await res.arrayBuffer());
+    }
+    const { contentType, ext } = detectImage(bytes);
+    return { bytes, contentType, ext, model };
   }
 }

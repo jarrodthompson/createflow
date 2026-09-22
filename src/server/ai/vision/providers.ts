@@ -1,4 +1,6 @@
 import { type VisionProvider, type VisionInput, type AnalysisResult, analysisSchema } from "./types";
+import { postWithRetry } from "../fetch-retry";
+import { cfRunUrl } from "../providers/cloudflare";
 import { env } from "@/lib/env";
 
 const SYSTEM =
@@ -87,5 +89,41 @@ export class GeminiVisionProvider implements VisionProvider {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
     };
     return parse(data.candidates?.[0]?.content?.parts?.[0]?.text ?? "");
+  }
+}
+
+/** Cloudflare Workers AI vision provider (llama-3.2-vision). Free-tier friendly. */
+export class CloudflareVisionProvider implements VisionProvider {
+  readonly name = "cloudflare";
+  readonly isMock = false;
+
+  async analyze(input: VisionInput): Promise<AnalysisResult> {
+    const model = env.CLOUDFLARE_VISION_MODEL;
+    const res = await postWithRetry(
+      cfRunUrl(model),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        // Workers AI vision models accept the image as an array of byte values.
+        body: JSON.stringify({
+          prompt: `${SYSTEM}\n\n${userText(input)}`,
+          image: Array.from(input.imageBytes),
+          max_tokens: 512,
+        }),
+      },
+      { label: "Cloudflare vision", retries: 3, baseDelayMs: 1500 },
+    );
+    const data = (await res.json()) as {
+      result?: { response?: string };
+      success?: boolean;
+      errors?: { message?: string }[];
+    };
+    if (data.success === false) {
+      throw new Error(`Cloudflare vision error: ${data.errors?.map((e) => e.message).join("; ")}`);
+    }
+    return parse(data.result?.response ?? "");
   }
 }
