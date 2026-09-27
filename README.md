@@ -5,6 +5,13 @@
 Create, manage and list digital products with AI — from idea → planning → prompts →
 image generation → review → packaging → Etsy SEO → Etsy draft → your final approval.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+**typecheck → lint → tests → build**, plus a **Docker image build**. It uses dummy
+env values (no real database needed), so it catches type errors, lint issues,
+failing tests, and broken builds/Dockerfile before they merge.
+
 ## Tech stack
 
 - **Next.js 16** (App Router, React 19, TypeScript)
