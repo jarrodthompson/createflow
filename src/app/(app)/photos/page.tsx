@@ -5,36 +5,44 @@ import { requireUser } from "@/server/actions/auth";
 import { getActiveShop } from "@/server/repositories/shops";
 import { prisma } from "@/lib/prisma";
 import { Card, Badge } from "@/components/ui/primitives";
+import { Pagination, parsePage } from "@/components/ui/pagination";
 import { fileUrl } from "@/lib/file-url";
+
+const PER_PAGE = 60;
 
 export default async function PhotoLibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ product?: string }>;
+  searchParams: Promise<{ product?: string; page?: string }>;
 }) {
   const user = await requireUser();
   const [shop, sp] = await Promise.all([getActiveShop(user.id), searchParams]);
   if (!shop) return null;
 
   const productFilter = sp.product;
+  const page = parsePage(sp.page);
+  const imageWhere = {
+    status: "completed",
+    storageKey: { not: null },
+    product: { userId: user.id, shopId: shop.id, ...(productFilter ? { id: productFilter } : {}) },
+  };
 
-  const [products, images] = await Promise.all([
+  const [products, images, total] = await Promise.all([
     prisma.product.findMany({
       where: { userId: user.id, shopId: shop.id },
       select: { id: true, name: true, _count: { select: { images: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.image.findMany({
-      where: {
-        status: "completed",
-        storageKey: { not: null },
-        product: { userId: user.id, shopId: shop.id, ...(productFilter ? { id: productFilter } : {}) },
-      },
+      where: imageWhere,
       orderBy: { updatedAt: "desc" },
-      take: 120,
+      skip: (page - 1) * PER_PAGE,
+      take: PER_PAGE,
       include: { product: { select: { name: true } } },
     }),
+    prisma.image.count({ where: imageWhere }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
     <div className="mx-auto max-w-[1300px] space-y-6">
@@ -43,7 +51,7 @@ export default async function PhotoLibraryPage({
           <Images className="h-6 w-6 text-primary" /> Photo Library
         </h1>
         <p className="mt-1 text-sm text-muted">
-          All generated images{shop ? ` in ${shop.name}` : ""} · {images.length} shown
+          All generated images{shop ? ` in ${shop.name}` : ""} · {total} total
         </p>
       </div>
 
@@ -108,6 +116,13 @@ export default async function PhotoLibraryPage({
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        basePath="/photos"
+        query={{ product: productFilter }}
+      />
     </div>
   );
 }

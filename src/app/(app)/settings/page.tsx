@@ -7,6 +7,7 @@ import { getImageProvider } from "@/server/ai/image/registry";
 import { getVisionProvider } from "@/server/ai/vision/registry";
 import { Card, Badge } from "@/components/ui/primitives";
 import { createShopAction } from "@/server/actions/shop";
+import { DeleteShopButton } from "@/components/shop/delete-shop-button";
 
 export default async function SettingsPage({
   searchParams,
@@ -65,18 +66,21 @@ export default async function SettingsPage({
                     : "Not connected"}
                 </p>
               </div>
-              {shop.status === "connected" ? (
-                <Badge tone="success">
-                  <Check className="h-3 w-3" /> Connected
-                </Badge>
-              ) : (
-                <a
-                  href={`/api/etsy/oauth/start?shopId=${shop.id}`}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-hover"
-                >
-                  <KeyRound className="h-4 w-4" /> Connect to Etsy
-                </a>
-              )}
+              <div className="flex items-center gap-2">
+                {shop.status === "connected" ? (
+                  <Badge tone="success">
+                    <Check className="h-3 w-3" /> Connected
+                  </Badge>
+                ) : (
+                  <a
+                    href={`/api/etsy/oauth/start?shopId=${shop.id}`}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-hover"
+                  >
+                    <KeyRound className="h-4 w-4" /> Connect to Etsy
+                  </a>
+                )}
+                {shops.length > 1 && <DeleteShopButton shopId={shop.id} name={shop.name} />}
+              </div>
             </div>
           ))}
         </div>

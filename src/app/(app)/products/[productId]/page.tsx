@@ -10,6 +10,7 @@ import { Card, Badge, LinkButton } from "@/components/ui/primitives";
 import { planCollectionAction } from "@/server/actions/planning";
 import { GenerationPanel } from "@/components/generation/generation-panel";
 import { PackagePanel } from "@/components/packaging/package-panel";
+import { DeleteProductButton } from "@/components/product/delete-product-button";
 import { getImageProvider } from "@/server/ai/image/registry";
 import { IMAGE_COST } from "@/server/ai/image/registry";
 import { fileUrl } from "@/server/storage";
@@ -135,6 +136,7 @@ export default async function ProductDetailPage({
           <Badge tone={statusTone(product.etsyStatus)}>
             Etsy: {ETSY_STATUS_LABELS[product.etsyStatus as EtsyStatus] ?? product.etsyStatus}
           </Badge>
+          <DeleteProductButton productId={product.id} name={product.name} />
         </div>
       </div>
 

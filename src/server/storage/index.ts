@@ -6,6 +6,8 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { env } from "@/lib/env";
 
@@ -20,6 +22,8 @@ export interface StorageProvider {
   put(key: string, bytes: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   delete(key: string): Promise<void>;
+  /** Remove every object under a key prefix (best-effort cleanup on delete). */
+  deletePrefix(prefix: string): Promise<void>;
 }
 
 export { fileUrl } from "@/lib/file-url";
@@ -81,6 +85,14 @@ class LocalStorage implements StorageProvider {
       // already gone
     }
   }
+
+  async deletePrefix(prefix: string): Promise<void> {
+    try {
+      await fs.rm(this.full(prefix), { recursive: true, force: true });
+    } catch {
+      // nothing to remove
+    }
+  }
 }
 
 class S3Storage implements StorageProvider {
@@ -124,6 +136,22 @@ class S3Storage implements StorageProvider {
 
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  async deletePrefix(prefix: string): Promise<void> {
+    let token: string | undefined;
+    do {
+      const list = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }),
+      );
+      const objects = (list.Contents ?? []).map((o) => ({ Key: o.Key! })).filter((o) => o.Key);
+      if (objects.length > 0) {
+        await this.client.send(
+          new DeleteObjectsCommand({ Bucket: this.bucket, Delete: { Objects: objects } }),
+        );
+      }
+      token = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (token);
   }
 }
 

@@ -5,22 +5,36 @@ import { requireUser } from "@/server/actions/auth";
 import { getActiveShop } from "@/server/repositories/shops";
 import { prisma } from "@/lib/prisma";
 import { Card, Badge } from "@/components/ui/primitives";
+import { Pagination, parsePage } from "@/components/ui/pagination";
 import { Thumbnail } from "@/components/ui/thumbnail";
 import { fileUrl } from "@/lib/file-url";
 import { formatDate } from "@/lib/utils";
 import { statusTone } from "@/lib/constants";
 
-export default async function ListingsPage() {
-  const user = await requireUser();
-  const shop = await getActiveShop(user.id);
+const PER_PAGE = 20;
 
-  const listings = shop
-    ? await prisma.etsyListing.findMany({
-        where: { shopId: shop.id },
-        orderBy: { updatedAt: "desc" },
-        include: { product: { select: { id: true, name: true, thumbnailKey: true, updatedAt: true } } },
-      })
-    : [];
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const user = await requireUser();
+  const [shop, sp] = await Promise.all([getActiveShop(user.id), searchParams]);
+  const page = parsePage(sp.page);
+
+  const [listings, total] = shop
+    ? await Promise.all([
+        prisma.etsyListing.findMany({
+          where: { shopId: shop.id },
+          orderBy: { updatedAt: "desc" },
+          include: { product: { select: { id: true, name: true, thumbnailKey: true, updatedAt: true } } },
+          skip: (page - 1) * PER_PAGE,
+          take: PER_PAGE,
+        }),
+        prisma.etsyListing.count({ where: { shopId: shop.id } }),
+      ])
+    : [[], 0];
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
@@ -81,6 +95,8 @@ export default async function ListingsPage() {
           ))}
         </Card>
       )}
+
+      <Pagination page={page} totalPages={totalPages} basePath="/listings" />
     </div>
   );
 }

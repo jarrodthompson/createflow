@@ -5,7 +5,9 @@ import { requireUser } from "@/server/actions/auth";
 import { getActiveShop } from "@/server/repositories/shops";
 import { prisma } from "@/lib/prisma";
 import { Card, Badge } from "@/components/ui/primitives";
+import { Pagination, parsePage } from "@/components/ui/pagination";
 import { Thumbnail } from "@/components/ui/thumbnail";
+import { DeleteProductButton } from "@/components/product/delete-product-button";
 import { fileUrl } from "@/lib/file-url";
 import { formatDate } from "@/lib/utils";
 import {
@@ -15,20 +17,33 @@ import {
 } from "@/lib/constants";
 import { archiveProductAction, duplicateProductAction } from "@/server/actions/product";
 
-export default async function LibraryPage() {
-  const user = await requireUser();
-  const shop = await getActiveShop(user.id);
+const PER_PAGE = 12;
 
-  const products = shop
-    ? await prisma.product.findMany({
-        where: { userId: user.id, shopId: shop.id },
-        orderBy: { updatedAt: "desc" },
-        include: {
-          files: { where: { kind: "zip" }, orderBy: { createdAt: "desc" }, take: 1 },
-          _count: { select: { images: true } },
-        },
-      })
-    : [];
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const user = await requireUser();
+  const [shop, sp] = await Promise.all([getActiveShop(user.id), searchParams]);
+  const page = parsePage(sp.page);
+
+  const [products, total] = shop
+    ? await Promise.all([
+        prisma.product.findMany({
+          where: { userId: user.id, shopId: shop.id },
+          orderBy: { updatedAt: "desc" },
+          include: {
+            files: { where: { kind: "zip" }, orderBy: { createdAt: "desc" }, take: 1 },
+            _count: { select: { images: true } },
+          },
+          skip: (page - 1) * PER_PAGE,
+          take: PER_PAGE,
+        }),
+        prisma.product.count({ where: { userId: user.id, shopId: shop.id } }),
+      ])
+    : [[], 0];
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -129,6 +144,7 @@ export default async function LibraryPage() {
                         )}
                       </button>
                     </form>
+                    <DeleteProductButton productId={p.id} name={p.name} />
                   </div>
                 </div>
               </Card>
@@ -136,6 +152,8 @@ export default async function LibraryPage() {
           })}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} basePath="/library" />
     </div>
   );
 }

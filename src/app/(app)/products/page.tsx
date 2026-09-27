@@ -2,8 +2,9 @@ import Link from "next/link";
 import { Plus, Package } from "lucide-react";
 import { requireUser } from "@/server/actions/auth";
 import { getActiveShop } from "@/server/repositories/shops";
-import { listProducts } from "@/server/repositories/products";
+import { listProductsPaged } from "@/server/repositories/products";
 import { Card, Badge, LinkButton } from "@/components/ui/primitives";
+import { Pagination, parsePage } from "@/components/ui/pagination";
 import { Thumbnail } from "@/components/ui/thumbnail";
 import { formatDate } from "@/lib/utils";
 import {
@@ -14,10 +15,22 @@ import {
   type EtsyStatus,
 } from "@/lib/constants";
 
-export default async function ProductsPage() {
+const PER_PAGE = 12;
+
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await requireUser();
-  const shop = await getActiveShop(user.id);
-  const products = await listProducts(user.id, shop?.id ?? null);
+  const [shop, sp] = await Promise.all([getActiveShop(user.id), searchParams]);
+  const page = parsePage(sp.page);
+  const { items: products, total, totalPages } = await listProductsPaged(
+    user.id,
+    shop?.id ?? null,
+    page,
+    PER_PAGE,
+  );
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -25,7 +38,7 @@ export default async function ProductsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Products</h1>
           <p className="mt-1 text-sm text-muted">
-            {products.length} product{products.length === 1 ? "" : "s"}
+            {total} product{total === 1 ? "" : "s"}
             {shop ? ` in ${shop.name}` : ""}
           </p>
         </div>
@@ -86,6 +99,8 @@ export default async function ProductsPage() {
           </div>
         </Card>
       )}
+
+      <Pagination page={page} totalPages={totalPages} basePath="/products" />
     </div>
   );
 }

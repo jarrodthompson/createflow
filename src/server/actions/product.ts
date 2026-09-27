@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "./auth";
 import { getActiveShop } from "@/server/repositories/shops";
+import { getStorage } from "@/server/storage";
 import { PRODUCT_TYPES, CANVAS_PRESETS, DPI_PRESETS } from "@/lib/constants";
 
 export type ProductFormState = { error?: string } | undefined;
@@ -86,6 +87,38 @@ export async function archiveProductAction(formData: FormData) {
   revalidatePath("/library");
   revalidatePath("/products");
   revalidatePath("/dashboard");
+}
+
+/** Permanently delete a product and all its assets (images, prompts, files, listing). */
+export async function deleteProductAction(formData: FormData) {
+  const user = await requireUser();
+  const productId = String(formData.get("productId") ?? "");
+  const product = await prisma.product.findFirst({
+    where: { id: productId, userId: user.id },
+    select: { id: true, shopId: true, name: true },
+  });
+  if (!product) redirect("/library");
+
+  // Remove all stored assets for this product (images + exports).
+  await getStorage()
+    .deletePrefix(`shops/${product.shopId}/products/${product.id}/`)
+    .catch(() => {});
+
+  await prisma.$transaction([
+    // EtsyListing.product is an optional relation (no cascade) — remove it first
+    // so its metadata cascades; the product delete cascades the rest.
+    prisma.etsyListing.deleteMany({ where: { productId } }),
+    prisma.product.delete({ where: { id: productId } }),
+  ]);
+  await prisma.activityLog.create({
+    data: { userId: user.id, action: "product.deleted", detail: product.name },
+  });
+
+  revalidatePath("/library");
+  revalidatePath("/products");
+  revalidatePath("/dashboard");
+  revalidatePath("/photos");
+  redirect("/library");
 }
 
 export async function duplicateProductAction(formData: FormData) {

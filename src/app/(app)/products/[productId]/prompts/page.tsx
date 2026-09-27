@@ -5,12 +5,15 @@ import { requireUser } from "@/server/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { getCreativeDirector } from "@/server/ai/registry";
 import { Card, Badge } from "@/components/ui/primitives";
+import { Pagination, parsePage } from "@/components/ui/pagination";
 import { PromptRow } from "@/components/prompts/prompt-row";
 import {
   addPromptAction,
   regenerateAllPromptsAction,
   approvePromptsAction,
 } from "@/server/actions/planning";
+
+const PER_PAGE = 25;
 
 function parseList(json: string | null): string[] {
   if (!json) return [];
@@ -24,25 +27,40 @@ function parseList(json: string | null): string[] {
 
 export default async function PromptStudioPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ productId: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { productId } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
   const user = await requireUser();
 
   const product = await prisma.product.findFirst({
     where: { id: productId, userId: user.id },
     include: {
       collection: { include: { categories: { orderBy: { name: "asc" } } } },
-      prompts: { orderBy: { index: "asc" } },
     },
   });
   if (!product) notFound();
 
+  // Prompts paginated; counts computed across the whole set (not just the page).
+  const [prompts, promptTotal, approved] = await Promise.all([
+    prisma.prompt.findMany({
+      where: { productId },
+      orderBy: { index: "asc" },
+      skip: (page - 1) * PER_PAGE,
+      take: PER_PAGE,
+    }),
+    prisma.prompt.count({ where: { productId } }),
+    prisma.prompt.count({ where: { productId, status: "approved" } }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(promptTotal / PER_PAGE));
+
   const director = getCreativeDirector();
-  const { collection, prompts } = product;
-  const approved = prompts.filter((p) => p.status === "approved").length;
-  const drafts = prompts.length - approved;
+  const { collection } = product;
+  const drafts = promptTotal - approved;
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -57,7 +75,7 @@ export default async function PromptStudioPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Prompt Studio</h1>
           <p className="mt-1 text-sm text-muted">
-            {product.name} · {prompts.length} prompts
+            {product.name} · {promptTotal} prompts
           </p>
         </div>
         {director.isMock && (
@@ -173,6 +191,11 @@ export default async function PromptStudioPage({
               </tbody>
             </table>
           </Card>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            basePath={`/products/${productId}/prompts`}
+          />
         </>
       )}
     </div>
