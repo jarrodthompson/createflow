@@ -54,8 +54,31 @@ Flip `AI_TEXT_PROVIDER` / `AI_IMAGE_PROVIDER` / `AI_VISION_PROVIDER` between
 `cloudflare` (free), `openai`, `gemini`, or `mock`, and add the matching key
 (`OPENAI_API_KEY` / `GEMINI_API_KEY`). No code change.
 
-## Etsy (optional)
+## Etsy — creating real draft listings
 
-To connect real Etsy shops in production, set `ETSY_CLIENT_ID`,
-`ETSY_CLIENT_SECRET`, and `ETSY_REDIRECT_URI=<APP_URL>/api/etsy/oauth/callback`,
-and register that exact callback URL in your Etsy app.
+By default (no Etsy env vars) the app uses a **dev mock** Etsy client: the
+"Create Etsy Draft" button returns a `mock-…` id and nothing is sent to Etsy.
+The app only ever creates **drafts** — you publish from Etsy yourself; it never
+auto-publishes.
+
+To switch to the **real** Etsy API (`openapi.etsy.com`), two things must be true:
+the env vars below are set **and** the shop is connected via real OAuth.
+
+1. **Etsy app** ([etsy.com/developers](https://www.etsy.com/developers/your-apps)) —
+   your app must be **Approved** for write scopes. Note the **Keystring**
+   (→ `ETSY_CLIENT_ID`) and **Shared Secret** (→ `ETSY_CLIENT_SECRET`).
+2. **Render env vars** (dashboard → service → Environment → Save):
+   - `ETSY_CLIENT_ID` = keystring (sent as the `x-api-key` header)
+   - `ETSY_CLIENT_SECRET` = shared secret (used for the OAuth token exchange)
+   - `ETSY_REDIRECT_URI` = `https://<your-app>.onrender.com/api/etsy/oauth/callback`
+3. **Register the callback** — add that exact `ETSY_REDIRECT_URI` as a Callback
+   URL in the Etsy app settings. OAuth scopes requested: `listings_r listings_w
+   shops_r shops_w`.
+4. **Connect a real shop** — in CreateFlow, connect Etsy via OAuth. This stores a
+   real token **and your real numeric shop_id** (the draft call hits
+   `/shops/{shopId}/listings`). The seeded demo shop has a fake id, so connect a
+   real shop (or create the product under the connected shop).
+5. **Create the draft, then publish** — click **Create Etsy Draft**. With real
+   creds + a connected shop it POSTs a draft, uploads the listing images and the
+   digital ZIP, and returns a real numeric listing id. Open the draft in your
+   Etsy Shop Manager, review, and **Publish**.

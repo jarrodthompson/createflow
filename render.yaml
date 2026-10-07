@@ -45,3 +45,13 @@ services:
         sync: false
       - key: CLOUDFLARE_API_TOKEN
         sync: false
+      # Etsy (optional) — set these to create REAL draft listings instead of the
+      # dev mock. ETSY_CLIENT_ID = keystring, ETSY_CLIENT_SECRET = shared secret,
+      # ETSY_REDIRECT_URI = <APP_URL>/api/etsy/oauth/callback (register it in the
+      # Etsy app too). Leave unset to keep the safe mock draft flow.
+      - key: ETSY_CLIENT_ID
+        sync: false
+      - key: ETSY_CLIENT_SECRET
+        sync: false
+      - key: ETSY_REDIRECT_URI
+        sync: false
