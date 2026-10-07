@@ -19,9 +19,21 @@ async function main() {
   try {
     await client.send(new HeadBucketCommand({ Bucket: bucket }));
     console.log(`✅ Bucket "${bucket}" already exists.`);
+    return;
   } catch {
+    // Not found (or no HeadBucket perms) — try to create it below.
+  }
+  try {
     await client.send(new CreateBucketCommand({ Bucket: bucket }));
     console.log(`✅ Created bucket "${bucket}".`);
+  } catch (e) {
+    // Some S3-compatible providers (e.g. Supabase Storage) don't allow bucket
+    // creation over the S3 API — create it in their dashboard instead. Don't
+    // fail the deploy over this.
+    console.warn(
+      `⚠️  Could not create bucket "${bucket}" via S3 API: ${(e as Error).message}\n` +
+        `   If you're on Supabase/Backblaze/etc., create the bucket in their dashboard.`,
+    );
   }
 }
 
