@@ -9,7 +9,7 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /sign-in
-    dockerCommand: sh -c "npx prisma migrate deploy && (npx tsx scripts/setup-storage.ts || true) && npm start"
+    dockerCommand: sh scripts/start.sh
     envVars:
       - key: QUEUE_DRIVER
         value: inline
