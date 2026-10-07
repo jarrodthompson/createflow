@@ -3,6 +3,16 @@ import { env } from "@/lib/env";
 
 const API = "https://openapi.etsy.com/v3/application";
 
+/**
+ * Etsy's `x-api-key` value. This environment's API requires the combined
+ * `keystring:shared_secret` form (ETSY_CLIENT_ID:ETSY_CLIENT_SECRET); if no
+ * secret is set it falls back to the keystring alone.
+ */
+export function etsyApiKey(): string {
+  const key = env.ETSY_CLIENT_ID ?? "";
+  return env.ETSY_CLIENT_SECRET ? `${key}:${env.ETSY_CLIENT_SECRET}` : key;
+}
+
 export type DraftListingInput = {
   title: string;
   description: string;
@@ -28,7 +38,7 @@ export class RealEtsyClient implements EtsyClient {
 
   private headers(extra: Record<string, string> = {}) {
     return {
-      "x-api-key": env.ETSY_CLIENT_ID!,
+      "x-api-key": etsyApiKey(),
       Authorization: `Bearer ${this.accessToken}`,
       ...extra,
     };

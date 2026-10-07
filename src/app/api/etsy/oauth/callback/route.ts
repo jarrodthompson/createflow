@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { exchangeCode } from "@/server/etsy/oauth";
+import { etsyApiKey } from "@/server/etsy/client";
 import { encryptSecret } from "@/lib/crypto";
 
 export async function GET(req: NextRequest) {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
     try {
       const res = await fetch(
         `https://openapi.etsy.com/v3/application/users/${etsyUserId}/shops`,
-        { headers: { "x-api-key": env.ETSY_CLIENT_ID!, Authorization: `Bearer ${tokens.access_token}` } },
+        { headers: { "x-api-key": etsyApiKey(), Authorization: `Bearer ${tokens.access_token}` } },
       );
       if (res.ok) {
         const data = (await res.json()) as { results?: { shop_id: number }[]; shop_id?: number };
