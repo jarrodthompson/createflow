@@ -56,17 +56,34 @@ export type RegenInput = PlanInput & {
 // ---- Etsy listing / SEO ----
 export type ListingInput = PlanInput & { productName: string; approvedCount: number };
 
+// LLMs don't reliably honour length/shape caps, so parse leniently and
+// normalize rather than throwing a 500 on a slightly-off response.
+const cleanStringArray = (v: unknown): string[] =>
+  Array.isArray(v)
+    ? v.filter((x) => typeof x === "string" && x.trim()).map((x) => (x as string).trim())
+    : [];
+
+const cleanAttributes = (v: unknown): Record<string, string> => {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (val == null || typeof val === "object") continue; // drop null / nested
+    out[k] = String(val);
+  }
+  return out;
+};
+
 export const listingResultSchema = z.object({
-  title: z.string().min(1).max(140),
+  title: z.string().min(1).transform((s) => s.slice(0, 140)),
   description: z.string().min(1),
-  tags: z.array(z.string()).max(13),
-  keywords: z.array(z.string()),
-  materials: z.array(z.string()),
-  colors: z.array(z.string()),
-  occasions: z.array(z.string()),
-  styleTags: z.array(z.string()),
-  category: z.string(),
-  attributes: z.record(z.string(), z.string()).default({}),
+  tags: z.preprocess(cleanStringArray, z.array(z.string())).transform((a) => a.slice(0, 13)),
+  keywords: z.preprocess(cleanStringArray, z.array(z.string())),
+  materials: z.preprocess(cleanStringArray, z.array(z.string())),
+  colors: z.preprocess(cleanStringArray, z.array(z.string())),
+  occasions: z.preprocess(cleanStringArray, z.array(z.string())),
+  styleTags: z.preprocess(cleanStringArray, z.array(z.string())),
+  category: z.string().default(""),
+  attributes: z.preprocess(cleanAttributes, z.record(z.string(), z.string())).default({}),
 });
 export type ListingResult = z.infer<typeof listingResultSchema>;
 
